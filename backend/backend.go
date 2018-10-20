@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
+	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -28,8 +28,17 @@ var defaultEntropySource io.Reader
 type Backend struct {
 	ssmvars.ReadWriter
 
-	bucketName string
 	s3         s3iface.S3API
+	bucketName *string
+}
+
+// New returns an implementation of Secret Service backend.
+func New(ssm ssmvars.ReadWriter, s3 s3iface.S3API, bucketName string) *Backend {
+	return &Backend{
+		ReadWriter: ssm,
+		s3:         s3,
+		bucketName: aws.String(bucketName),
+	}
 }
 
 // CreateRelease creates a release with a given set of variables.
@@ -51,12 +60,33 @@ func (b *Backend) CreateRelease(ctx context.Context, scopeName string, variables
 		Variables: variables,
 	}
 
-	kmsKeyID := scope.KMSKeyID
-	if err := b.putRelease(ctx, archivePrefix, kmsKeyID, release); err != nil {
-		return nil, errors.Wrap(err, "could not put release in the archive")
+	body, err := json.Marshal(release)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not marshal the release")
 	}
-	if err := b.putRelease(ctx, livePrefix, kmsKeyID, release); err != nil {
-		return nil, errors.Wrap(err, "could not make the release live")
+
+	kmsKeyID := aws.String(scope.KMSKeyID)
+	archiveKey := b.objectKey(release.ScopeName, archivePrefix, release.ID)
+	_, err = b.s3.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Body:                 bytes.NewReader(body),
+		Bucket:               b.bucketName,
+		Key:                  archiveKey,
+		SSEKMSKeyId:          kmsKeyID,
+		ServerSideEncryption: aws.String("aws:kms"),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not put archive object to S3")
+	}
+
+	_, err = b.s3.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
+		Bucket:               b.bucketName,
+		CopySource:           aws.String(path.Join(*b.bucketName, *archiveKey)),
+		Key:                  b.objectKey(release.ScopeName, livePrefix, release.ID),
+		SSEKMSKeyId:          kmsKeyID,
+		ServerSideEncryption: aws.String("aws:kms"),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not copy live version to S3")
 	}
 
 	return release, nil
@@ -79,7 +109,7 @@ func (b *Backend) GetRelease(ctx context.Context, scopeName, releaseID string) (
 // ArchiveRelease archives a release.
 func (b *Backend) ArchiveRelease(ctx context.Context, scopeName, releaseID string) error {
 	_, err := b.s3.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(b.bucketName),
+		Bucket: b.bucketName,
 		Key:    b.objectKey(scopeName, "live", releaseID),
 	})
 
@@ -97,7 +127,7 @@ func (b *Backend) Scope(ctx context.Context, scopeName string) (*secretservice.S
 
 func (b *Backend) getRelease(ctx context.Context, prefix, scopeName, releaseID string) (*secretservice.Release, error) {
 	output, err := b.s3.GetObjectWithContext(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(b.bucketName),
+		Bucket: b.bucketName,
 		Key:    b.objectKey(scopeName, prefix, releaseID),
 	})
 	if err != nil {
@@ -117,23 +147,6 @@ func (b *Backend) getRelease(ctx context.Context, prefix, scopeName, releaseID s
 	return release, nil
 }
 
-func (b *Backend) putRelease(ctx context.Context, prefix, kmsKeyID string, release *secretservice.Release) error {
-	body, err := json.Marshal(release)
-	if err != nil {
-		return errors.Wrap(err, "could not marshal the release")
-	}
-
-	_, err = b.s3.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Body:                 bytes.NewReader(body),
-		Bucket:               aws.String(b.bucketName),
-		Key:                  b.objectKey(release.ScopeName, prefix, release.ID),
-		SSEKMSKeyId:          aws.String(kmsKeyID),
-		ServerSideEncryption: aws.String("aws:kms"),
-	})
-
-	return errors.Wrap(err, "could not put object in S3")
-}
-
 func (b *Backend) objectKey(scopeName, prefix, releaseID string) *string {
-	return aws.String(fmt.Sprintf("%s/%s/%s", scopeName, prefix, releaseID))
+	return aws.String(path.Join(scopeName, prefix, releaseID))
 }

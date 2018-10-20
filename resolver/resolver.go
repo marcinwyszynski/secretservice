@@ -1,4 +1,4 @@
-package resolvers
+package resolver
 
 import (
 	"context"
@@ -10,8 +10,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-type rootResolver struct {
+type resolver struct {
 	wraps secretservice.Backend
+}
+
+// New returns an implementation of GraphQL resolver.
+func New(backend secretservice.Backend) interface{} {
+	return &resolver{wraps: backend}
 }
 
 type releaseArgs struct {
@@ -19,7 +24,7 @@ type releaseArgs struct {
 }
 
 // release(scopeId: ID!, releaseId: ID!): Release!
-func (r *rootResolver) Release(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
+func (r *resolver) Release(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
 	scopeName := string(args.ScopeID)
 
 	scope, err := r.wraps.Scope(ctx, scopeName)
@@ -40,7 +45,7 @@ type scopeArgs struct {
 }
 
 // scope(scopeId: ID!): Scope!
-func (r *rootResolver) Scope(ctx context.Context, args scopeArgs) (*scopeResolver, error) {
+func (r *resolver) Scope(ctx context.Context, args scopeArgs) (*scopeResolver, error) {
 	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
 	if err != nil {
 		return nil, err
@@ -54,7 +59,7 @@ type createScopeArgs struct {
 }
 
 // createScope(name: String!, kmsKeyId: String!): Scope!
-func (r *rootResolver) CreateScope(ctx context.Context, args createScopeArgs) (*scopeResolver, error) {
+func (r *resolver) CreateScope(ctx context.Context, args createScopeArgs) (*scopeResolver, error) {
 	scopeName := args.Name
 	keyID := args.KMSKeyID
 
@@ -95,7 +100,7 @@ type addVariableArgs struct {
 }
 
 // addVariable(scopeId: ID!, variable: VariableInput!): Variable!
-func (r *rootResolver) AddVariable(ctx context.Context, args addVariableArgs) (*variableResolver, error) {
+func (r *resolver) AddVariable(ctx context.Context, args addVariableArgs) (*variableResolver, error) {
 	variable, err := r.wraps.CreateVariable(
 		ctx,
 		fmt.Sprintf("workspace/%s", args.ScopeID),
@@ -114,7 +119,7 @@ type removeVariableArgs struct {
 }
 
 // removeVariable(scopeId: ID!, id: ID!): Variable!
-func (r *rootResolver) RemoveVariable(ctx context.Context, args removeVariableArgs) (*variableResolver, error) {
+func (r *resolver) RemoveVariable(ctx context.Context, args removeVariableArgs) (*variableResolver, error) {
 	variable, err := r.wraps.DeleteVariable(ctx, fmt.Sprintf("workspace/%s", args.ScopeID), string(args.ID))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not remove variable")
@@ -124,7 +129,7 @@ func (r *rootResolver) RemoveVariable(ctx context.Context, args removeVariableAr
 }
 
 // createRelease(scopeId: ID!): Release!
-func (r *rootResolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseResolver, error) {
+func (r *resolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseResolver, error) {
 	scopeName := string(args.ScopeID)
 
 	scope, err := r.wraps.Scope(ctx, scopeName)
@@ -146,7 +151,7 @@ func (r *rootResolver) CreateRelease(ctx context.Context, args scopeArgs) (*rele
 }
 
 // showRelease(scopeId: ID!, releaseId: ID!): Release!
-func (r *rootResolver) ShowRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
+func (r *resolver) ShowRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
 	release, err := r.wraps.GetRelease(ctx, string(args.ScopeID), string(args.ReleaseID))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get release")
@@ -156,7 +161,7 @@ func (r *rootResolver) ShowRelease(ctx context.Context, args releaseArgs) (*rele
 }
 
 // archiveRelease(scopeId: ID!, releaseId: ID!): Release!
-func (r *rootResolver) ArchiveRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
+func (r *resolver) ArchiveRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
 	ret, err := r.ShowRelease(ctx, args)
 	if err != nil {
 		return nil, err
@@ -170,7 +175,7 @@ func (r *rootResolver) ArchiveRelease(ctx context.Context, args releaseArgs) (*r
 }
 
 // reset(scopeId: ID!, releaseId: ID!): Scope!
-func (r *rootResolver) Reset(ctx context.Context, args releaseArgs) (*scopeResolver, error) {
+func (r *resolver) Reset(ctx context.Context, args releaseArgs) (*scopeResolver, error) {
 	scopeName := string(args.ScopeID)
 
 	scope, err := r.wraps.Scope(ctx, scopeName)

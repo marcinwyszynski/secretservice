@@ -18,6 +18,10 @@
   name = "github.com/pkg/errors"
   version = "0.8.0"
 
+[[constraint]]
+  name = "github.com/aws/aws-xray-sdk-go"
+  version = "v1.0.0-rc.8"
+
 [prune]
   go-tests = true
   unused-packages = true
