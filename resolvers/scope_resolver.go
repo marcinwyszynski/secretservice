@@ -5,9 +5,8 @@ import (
 	"fmt"
 
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
-
 	"github.com/marcinwyszynski/secretservice"
+	"github.com/pkg/errors"
 )
 
 type scopeResolver struct {

@@ -13,4 +13,5 @@ type Backend interface {
 	CreateRelease(ctx context.Context, scopeName string, variables []*ssmvars.Variable) (*Release, error)
 	GetRelease(ctx context.Context, scopeName, releaseID string) (*Release, error)
 	ArchiveRelease(ctx context.Context, scopeName, releaseID string) error
+	Scope(ctx context.Context, scopeName string) (*Scope, error)
 }

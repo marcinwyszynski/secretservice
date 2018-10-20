@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	"github.com/graph-gophers/graphql-go"
+	"github.com/marcinwyszynski/secretservice"
 	"github.com/marcinwyszynski/ssmvars"
 	"github.com/pkg/errors"
-
-	"github.com/marcinwyszynski/secretservice"
 )
 
 type rootResolver struct {
@@ -23,7 +22,7 @@ type releaseArgs struct {
 func (r *rootResolver) Release(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
 	scopeName := string(args.ScopeID)
 
-	scope, err := r.getScope(ctx, scopeName)
+	scope, err := r.wraps.Scope(ctx, scopeName)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +41,7 @@ type scopeArgs struct {
 
 // scope(scopeId: ID!): Scope!
 func (r *rootResolver) Scope(ctx context.Context, args scopeArgs) (*scopeResolver, error) {
-	scope, err := r.getScope(ctx, string(args.ScopeID))
+	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +127,7 @@ func (r *rootResolver) RemoveVariable(ctx context.Context, args removeVariableAr
 func (r *rootResolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseResolver, error) {
 	scopeName := string(args.ScopeID)
 
-	scope, err := r.getScope(ctx, scopeName)
+	scope, err := r.wraps.Scope(ctx, scopeName)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +173,7 @@ func (r *rootResolver) ArchiveRelease(ctx context.Context, args releaseArgs) (*r
 func (r *rootResolver) Reset(ctx context.Context, args releaseArgs) (*scopeResolver, error) {
 	scopeName := string(args.ScopeID)
 
-	scope, err := r.getScope(ctx, scopeName)
+	scope, err := r.wraps.Scope(ctx, scopeName)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +196,4 @@ func (r *rootResolver) Reset(ctx context.Context, args releaseArgs) (*scopeResol
 	}
 
 	return &scopeResolver{backend: r.wraps, wraps: scope}, nil
-}
-
-func (r *rootResolver) getScope(ctx context.Context, scopeName string) (*secretservice.Scope, error) {
-	scopeVar, err := r.wraps.ShowVariable(ctx, "scopes", scopeName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not find scope %s", scopeName)
-	}
-	return &secretservice.Scope{Name: scopeName, KMSKeyID: scopeVar.Value}, nil
 }

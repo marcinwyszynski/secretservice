@@ -2,7 +2,6 @@ package resolvers
 
 import (
 	graphql "github.com/graph-gophers/graphql-go"
-
 	"github.com/marcinwyszynski/secretservice"
 )
 
