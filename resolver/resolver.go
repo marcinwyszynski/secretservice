@@ -32,12 +32,7 @@ func (r *resolver) Release(ctx context.Context, args releaseArgs) (*releaseResol
 		return nil, err
 	}
 
-	release, err := r.wraps.GetRelease(ctx, scopeName, string(args.ReleaseID))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get release")
-	}
-
-	return &releaseResolver{scope: scope, wraps: release}, nil
+	return &releaseResolver{backend: r.wraps, id: args.ReleaseID, scope: scope}, nil
 }
 
 type scopeArgs struct {
@@ -148,7 +143,7 @@ func (r *resolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseR
 		return nil, errors.Wrap(err, "could not create a release")
 	}
 
-	return &releaseResolver{scope: scope, wraps: release}, nil
+	return &releaseResolver{backend: r.wraps, id: graphql.ID(release.ID), scope: scope}, nil
 }
 
 // archiveRelease(scopeId: ID!, releaseId: ID!): Release!
