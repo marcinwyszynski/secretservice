@@ -32,7 +32,7 @@ func (r *resolver) Release(ctx context.Context, args releaseArgs) (*releaseResol
 		return nil, err
 	}
 
-	return &releaseResolver{backend: r.wraps, id: args.ReleaseID, scope: scope}, nil
+	return newReleaseResolver(r.wraps, args.ReleaseID, scope), nil
 }
 
 type scopeArgs struct {
@@ -143,7 +143,7 @@ func (r *resolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseR
 		return nil, errors.Wrap(err, "could not create a release")
 	}
 
-	return &releaseResolver{backend: r.wraps, id: graphql.ID(release.ID), scope: scope}, nil
+	return newReleaseResolver(r.wraps, graphql.ID(release.ID), scope), nil
 }
 
 // archiveRelease(scopeId: ID!, releaseId: ID!): Release!
