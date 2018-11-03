@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"sync"
 
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/marcinwyszynski/secretservice"
@@ -10,9 +11,19 @@ import (
 
 type releaseResolver struct {
 	backend secretservice.Backend
-	scope   *secretservice.Scope
 	id      graphql.ID
+	mutex   *sync.Mutex
+	scope   *secretservice.Scope
 	wraps   *secretservice.Release
+}
+
+func newReleaseResolver(backend secretservice.Backend, id graphql.ID, scope *secretservice.Scope) *releaseResolver {
+	return &releaseResolver{
+		backend: backend,
+		id:      id,
+		mutex:   new(sync.Mutex),
+		scope:   scope,
+	}
 }
 
 // id: ID!
@@ -49,9 +60,13 @@ func (r *releaseResolver) Variables(ctx context.Context) ([]*variableResolver, e
 }
 
 func (r *releaseResolver) loadRelease(ctx context.Context) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	if r.wraps != nil {
 		return nil
 	}
+
 	release, err := r.backend.GetRelease(ctx, r.scope.Name, string(r.id))
 	if err != nil {
 		return errors.Wrap(err, "could not lazily retrieve release")

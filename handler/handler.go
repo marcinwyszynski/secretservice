@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 )
@@ -46,6 +47,9 @@ func (h *Handler) handle(ctx context.Context, input string) ([]byte, error) {
 	if err := json.NewDecoder(strings.NewReader(input)).Decode(&req); err != nil {
 		return nil, errors.Wrap(err, "could not unmarshal request")
 	}
+
+	xray.AddAnnotation(ctx, "Operation", req.OperationName)
+
 	ret, err := json.Marshal(h.schema.Exec(ctx, req.Query, req.OperationName, req.Variables))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not write back the reponse")
