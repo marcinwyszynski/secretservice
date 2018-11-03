@@ -8,6 +8,17 @@
   version = "v1.1.1"
 
 [[projects]]
+  name = "github.com/aws/aws-lambda-go"
+  packages = [
+    "events",
+    "lambda",
+    "lambda/messages",
+    "lambdacontext"
+  ]
+  revision = "2d482ef09017ae953b1e8d5a6ddac5b696663a3c"
+  version = "v1.6.0"
+
+[[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -109,6 +120,12 @@
   revision = "0b12d6b5"
 
 [[projects]]
+  name = "github.com/kelseyhightower/envconfig"
+  packages = ["."]
+  revision = "f611eb38b3875cc3bd991ca91c51d06446afa14c"
+  version = "v1.3.0"
+
+[[projects]]
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
   revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
@@ -187,6 +204,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "996454bbc7f4d26414f5a15500a072121975e22f3314c2b145048396d917ba12"
+  inputs-digest = "1751bb8739f9899b7f44591617ad44933987e5b90f33ffb9366263ec25b390e5"
   solver-name = "gps-cdcl"
   solver-version = 1
