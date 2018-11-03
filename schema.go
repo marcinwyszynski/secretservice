@@ -29,9 +29,6 @@ type Mutation {
   # createRelease takes a snapshot of the current workspace to create a Release.
   createRelease(scopeId: ID!): Release!
 
-  # showRelease returns a Release given its ID.
-  showRelease(scopeId: ID!, releaseId: ID!): Release!
-
   # archiveRelease archives a Release. Archived releases should no longer be
   # available for anything other than historical purposes. This is an
   # irrevertible operation, though you can use "reset" to put the content

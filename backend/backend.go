@@ -3,8 +3,8 @@ package backend
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
-	"io"
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -22,7 +22,7 @@ const (
 	livePrefix    = "live"
 )
 
-var defaultEntropySource io.Reader
+var defaultEntropySource = rand.Reader
 
 // Backend is an S3 implementation of the secretservice backend.
 type Backend struct {
@@ -99,7 +99,7 @@ func (b *Backend) GetRelease(ctx context.Context, scopeName, releaseID string) (
 		return ret, nil
 	}
 
-	if aerr, ok := errors.Cause(err).(awserr.Error); !ok || aerr.Code() != "NotFound" {
+	if aerr, ok := errors.Cause(err).(awserr.Error); !ok || aerr.Code() != "NoSuchKey" {
 		return nil, err
 	}
 

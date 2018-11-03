@@ -63,12 +63,12 @@ func (r *resolver) CreateScope(ctx context.Context, args createScopeArgs) (*scop
 	scopeName := args.Name
 	keyID := args.KMSKeyID
 
-	scopes, err := r.wraps.ListVariables(ctx, "scopes")
+	scopeKeys, err := r.wraps.ListVariables(ctx, "scopes")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list scopes")
 	}
-	for _, scope := range scopes {
-		if scope.Value == scopeName {
+	for _, scope := range scopeKeys {
+		if scope.Name == scopeName {
 			return nil, errors.Errorf("scope %s already exists", scopeName)
 		}
 	}
@@ -78,7 +78,8 @@ func (r *resolver) CreateScope(ctx context.Context, args createScopeArgs) (*scop
 		return nil, errors.Wrap(err, "could not create scope")
 	}
 
-	return &scopeResolver{wraps: &secretservice.Scope{Name: scopeName, KMSKeyID: keyID}}, nil
+	scope := &secretservice.Scope{Name: scopeName, KMSKeyID: keyID}
+	return &scopeResolver{backend: r.wraps, wraps: scope}, nil
 }
 
 type variableInput struct {
@@ -147,31 +148,16 @@ func (r *resolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseR
 		return nil, errors.Wrap(err, "could not create a release")
 	}
 
-	return &releaseResolver{wraps: release}, nil
-}
-
-// showRelease(scopeId: ID!, releaseId: ID!): Release!
-func (r *resolver) ShowRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
-	release, err := r.wraps.GetRelease(ctx, string(args.ScopeID), string(args.ReleaseID))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get release")
-	}
-
-	return &releaseResolver{wraps: release}, nil
+	return &releaseResolver{scope: scope, wraps: release}, nil
 }
 
 // archiveRelease(scopeId: ID!, releaseId: ID!): Release!
 func (r *resolver) ArchiveRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
-	ret, err := r.ShowRelease(ctx, args)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := r.wraps.ArchiveRelease(ctx, string(args.ScopeID), string(args.ReleaseID)); err != nil {
 		return nil, errors.Wrap(err, "could not archive release")
 	}
 
-	return ret, nil
+	return r.Release(ctx, args)
 }
 
 // reset(scopeId: ID!, releaseId: ID!): Scope!
