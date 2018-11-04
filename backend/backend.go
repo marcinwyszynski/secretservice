@@ -85,7 +85,7 @@ func (b *Backend) CreateRelease(ctx context.Context, scopeName string, variables
 		ServerSideEncryption: aws.String("aws:kms"),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not copy live version to S3")
+		return nil, errors.Wrap(err, "could not copy live version on S3")
 	}
 
 	return release, nil
@@ -132,7 +132,7 @@ func (b *Backend) ArchiveRelease(ctx context.Context, scopeName, releaseID strin
 func (b *Backend) Scope(ctx context.Context, scopeName string) (*secretservice.Scope, error) {
 	scopeVar, err := b.ShowVariable(ctx, "scopes", scopeName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find scope %s", scopeName)
+		return nil, errors.Wrapf(err, "could not find scope %q", scopeName)
 	}
 	return &secretservice.Scope{Name: scopeName, KMSKeyID: scopeVar.Value}, nil
 }
