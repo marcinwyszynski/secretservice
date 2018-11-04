@@ -36,7 +36,10 @@ func (d *diffResolver) Changed() []*changeResolver {
 
 	for key, before := range d.oldVariables {
 		after, exists := d.newVariables[key]
-		if exists && before.Value != after.Value {
+		if !exists {
+			continue
+		}
+		if before.Value != after.Value || before.WriteOnly != after.WriteOnly {
 			ret = append(ret, &changeResolver{
 				before: before,
 				after:  after,
