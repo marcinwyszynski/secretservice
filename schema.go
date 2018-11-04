@@ -8,14 +8,6 @@ schema {
 }
 
 type Query {
-  # release returns a single release from a particular Scope.
-  release(scopeId: ID!, releaseId: ID!): Release!
-
-  # releases returns a list of releases for a particular Scope, sorted by
-  # timestamp in descending order, with 10 releases a batch. "before" parameter
-  # can be used for pagination.
-  releases(scopeId: ID!, before: ID): [Release!]!
-
   # workspace returns the current workspace for a particular Scope.
   scope(scopeId: ID!): Scope!
 }
@@ -64,8 +56,8 @@ type Diff {
 type Release {
   id: ID!
   diff(since: ID!): Diff!
-  scope: Scope!
   live: Boolean!
+  scope: Scope!
   timestamp: Int!
   variables: [Variable!]!
 }
@@ -76,6 +68,15 @@ type Scope {
   id: ID!
   diff(since: ID!): Diff!
   kmsKeyId: String!
+
+  # release returns a single release from a particular Scope.
+  release(id: ID!): Release!
+
+  # releases returns a list of releases for a particular Scope, sorted by
+  # timestamp in descending order, with 10 releases a batch. "before" parameter
+  # can be used for pagination.
+  releases(before: ID): [Release!]!
+
   variables: [Variable!]!
 }
 
