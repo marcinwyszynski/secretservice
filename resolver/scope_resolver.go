@@ -6,6 +6,7 @@ import (
 
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/marcinwyszynski/secretservice"
+	"github.com/marcinwyszynski/ssmvars"
 	"github.com/pkg/errors"
 )
 
@@ -19,6 +20,25 @@ func (s *scopeResolver) ID() graphql.ID {
 	return graphql.ID(s.wraps.Name)
 }
 
+type diffArgs struct {
+	Since graphql.ID
+}
+
+// diff(since: ID!) Diff!
+func (s *scopeResolver) Diff(ctx context.Context, args diffArgs) (*diffResolver, error) {
+	newVariables, err := s.workspace(ctx)
+	if err != nil {
+		return nil, nil
+	}
+
+	release, err := s.backend.GetRelease(ctx, s.wraps.Name, string(args.Since))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not retrieve old release")
+	}
+
+	return newDiffResolver(release.Variables, newVariables), nil
+}
+
 // kmsKeyId: String!
 func (s *scopeResolver) KMSKeyID() string {
 	return s.wraps.KMSKeyID
@@ -26,15 +46,23 @@ func (s *scopeResolver) KMSKeyID() string {
 
 // variables: [Variable!]!
 func (s *scopeResolver) Variables(ctx context.Context) ([]*variableResolver, error) {
-	variables, err := s.backend.ListVariables(ctx, fmt.Sprintf("workspace/%s", s.wraps.Name))
+	variables, err := s.workspace(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get workspace")
+		return nil, err
 	}
 
 	num := len(variables)
 	ret := make([]*variableResolver, num, num)
 	for i, variable := range variables {
 		ret[i] = &variableResolver{wraps: variable}
+	}
+	return ret, nil
+}
+
+func (s *scopeResolver) workspace(ctx context.Context) ([]*ssmvars.Variable, error) {
+	ret, err := s.backend.ListVariables(ctx, fmt.Sprintf("workspace/%s", s.wraps.Name))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get workspace")
 	}
 	return ret, nil
 }

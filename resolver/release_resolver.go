@@ -31,9 +31,18 @@ func (r *releaseResolver) ID() graphql.ID {
 	return graphql.ID(r.id)
 }
 
-// scope: Scope!
-func (r *releaseResolver) Scope() *scopeResolver {
-	return &scopeResolver{wraps: r.scope}
+// diff(since: ID!) Diff!
+func (r *releaseResolver) Diff(ctx context.Context, args diffArgs) (*diffResolver, error) {
+	if err := r.loadRelease(ctx); err != nil {
+		return nil, err
+	}
+
+	oldRelease, err := r.backend.GetRelease(ctx, r.scope.Name, string(args.Since))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not pull old release")
+	}
+
+	return newDiffResolver(oldRelease.Variables, r.wraps.Variables), nil
 }
 
 // live: Boolean!
@@ -43,6 +52,11 @@ func (r *releaseResolver) Live(ctx context.Context) (bool, error) {
 	}
 
 	return r.wraps.Live, nil
+}
+
+// scope: Scope!
+func (r *releaseResolver) Scope() *scopeResolver {
+	return &scopeResolver{backend: r.backend, wraps: r.scope}
 }
 
 // variables: [Variable!]!
@@ -71,6 +85,7 @@ func (r *releaseResolver) loadRelease(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "could not lazily retrieve release")
 	}
+
 	r.wraps = release
 	return nil
 }
