@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"path"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -42,7 +44,7 @@ func New(ssm ssmvars.ReadWriter, s3 s3iface.S3API, bucketName string) *Backend {
 
 // CreateRelease creates a release with a given set of variables.
 func (b *Backend) CreateRelease(ctx context.Context, scopeName string, variables []*ssmvars.Variable) (*secretservice.Release, error) {
-	ulid, err := ulid.New(ulid.Now(), defaultEntropySource)
+	ulid, err := ulid.New(ulid.MaxTime()-ulid.Now(), defaultEntropySource)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate an ID")
 	}
@@ -126,6 +128,34 @@ func (b *Backend) ArchiveRelease(ctx context.Context, scopeName, releaseID strin
 	})
 
 	return errors.Wrap(err, "could not remove live object from S3")
+}
+
+// ListReleases return a list of release IDs. If `before` argument is not nil,
+// it is used for pagination.
+func (b *Backend) ListReleases(ctx context.Context, scopeName string, before *string) ([]string, error) {
+	prefix := fmt.Sprintf("%s/%s/", scopeName, archivePrefix)
+
+	list, err := b.s3.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
+		Bucket:     b.bucketName,
+		MaxKeys:    aws.Int64(10),
+		Prefix:     aws.String(prefix),
+		StartAfter: before,
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list objects with a prefix")
+	}
+
+	var ret []string
+	for _, object := range list.Contents {
+		key := object.Key
+		if key == nil {
+			continue
+		}
+		ret = append(ret, strings.TrimPrefix(*key, prefix))
+	}
+
+	return ret, nil
 }
 
 // Scope returns scope by its name.

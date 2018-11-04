@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/marcinwyszynski/secretservice"
 	"github.com/marcinwyszynski/ssmvars"
@@ -25,14 +26,42 @@ type releaseArgs struct {
 
 // release(scopeId: ID!, releaseId: ID!): Release!
 func (r *resolver) Release(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
-	scopeName := string(args.ScopeID)
-
-	scope, err := r.wraps.Scope(ctx, scopeName)
+	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
 	if err != nil {
 		return nil, err
 	}
 
 	return newReleaseResolver(r.wraps, args.ReleaseID, scope), nil
+}
+
+type releasesArgs struct {
+	ScopeID graphql.ID
+	Before  *graphql.ID
+}
+
+// releases(scopeId: ID!, before: ID): [Release!]!
+func (r *resolver) Releases(ctx context.Context, args releasesArgs) ([]*releaseResolver, error) {
+	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
+	if err != nil {
+		return nil, err
+	}
+
+	var before *string
+	if args.Before != nil {
+		before = aws.String(string(*args.Before))
+	}
+
+	ids, err := r.wraps.ListReleases(ctx, string(args.ScopeID), before)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list release IDs")
+	}
+
+	ret := make([]*releaseResolver, len(ids), len(ids))
+	for index, id := range ids {
+		ret[index] = newReleaseResolver(r.wraps, graphql.ID(id), scope)
+	}
+
+	return ret, nil
 }
 
 type scopeArgs struct {
