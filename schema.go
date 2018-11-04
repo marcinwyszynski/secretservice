@@ -11,6 +11,11 @@ type Query {
   # release returns a single release from a particular Scope.
   release(scopeId: ID!, releaseId: ID!): Release!
 
+  # releases returns a list of releases for a particular Scope, sorted by
+  # timestamp in descending order, with 10 releases a batch. "before" parameter
+  # can be used for pagination.
+  releases(scopeId: ID!, before: ID): [Release!]!
+
   # workspace returns the current workspace for a particular Scope.
   scope(scopeId: ID!): Scope!
 }
@@ -61,6 +66,7 @@ type Release {
   diff(since: ID!): Diff!
   scope: Scope!
   live: Boolean!
+  timestamp: Int!
   variables: [Variable!]!
 }
 

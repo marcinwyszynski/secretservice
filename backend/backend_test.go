@@ -90,7 +90,7 @@ func (b *backendTestSuite) TestCreateRelease_FailCopy() {
 
 func (b *backendTestSuite) TestGetRelease_OK() {
 	b.withGetObject(`{"variables":[{"Name":"bacon","Value":"tasty","WriteOnly":true}]}`, nil)
-	b.withListObjects(nil, "scopeName/live/releaseID")
+	b.withLiveObjects(nil, "scopeName/live/releaseID")
 
 	release, err := b.sut.GetRelease(b.ctx, scopeName, releaseID)
 
@@ -108,7 +108,7 @@ func (b *backendTestSuite) TestGetRelease_OK() {
 
 func (b *backendTestSuite) TestGetRelease_NotLive() {
 	b.withGetObject(`{"variables":[{"Name":"bacon","Value":"tasty","WriteOnly":true}]}`, nil)
-	b.withListObjects(nil)
+	b.withLiveObjects(nil)
 
 	release, err := b.sut.GetRelease(b.ctx, scopeName, releaseID)
 
@@ -136,7 +136,7 @@ func (b *backendTestSuite) TestGetRelease_FailDecode() {
 
 func (b *backendTestSuite) TestGetRelease_FailCheckLive() {
 	b.withGetObject(`{"variables":[{"Name":"bacon","Value":"tasty","WriteOnly":true}]}`, nil)
-	b.withListObjects(errors.New("bacon"))
+	b.withLiveObjects(errors.New("bacon"))
 
 	release, err := b.sut.GetRelease(b.ctx, scopeName, releaseID)
 
@@ -157,6 +157,34 @@ func (b *backendTestSuite) TestArchiveRelease_FailDelete() {
 		b.sut.ArchiveRelease(b.ctx, scopeName, releaseID),
 		"could not remove live object from S3: bacon",
 	)
+}
+
+func (b *backendTestSuite) TestListReleases_OK() {
+	b.withList(nil, nil, "scopeName/archive/bacon")
+
+	releases, err := b.sut.ListReleases(b.ctx, scopeName, nil)
+
+	b.NoError(err)
+	b.Len(releases, 1)
+	b.Equal("bacon", releases[0])
+}
+
+func (b *backendTestSuite) TestListReleases_Before() {
+	b.withList(nil, nil, "scopeName/archive/bacon")
+
+	releases, err := b.sut.ListReleases(b.ctx, scopeName, aws.String("before"))
+
+	b.NoError(err)
+	b.Len(releases, 1)
+}
+
+func (b *backendTestSuite) TestListReleases_Failure() {
+	b.withList(errors.New("bacon"), nil)
+
+	releases, err := b.sut.ListReleases(b.ctx, scopeName, aws.String("before"))
+
+	b.Nil(releases)
+	b.EqualError(err, "could not list objects with a prefix: bacon")
 }
 
 func (b *backendTestSuite) TestScope_OK() {
@@ -225,7 +253,7 @@ func (b *backendTestSuite) withGetObject(body string, err error) {
 			b.True(ok)
 
 			b.Equal(bucketName, *input.Bucket)
-			b.Equal(*input.Key, "scopeName/archive/releaseID")
+			b.Equal("scopeName/archive/releaseID", *input.Key)
 
 			return true
 		}),
@@ -233,7 +261,34 @@ func (b *backendTestSuite) withGetObject(body string, err error) {
 	).Return(&s3.GetObjectOutput{Body: ioutil.NopCloser(strings.NewReader(body))}, err)
 }
 
-func (b *backendTestSuite) withListObjects(err error, keys ...string) {
+func (b *backendTestSuite) withList(err error, before *string, keys ...string) {
+	objects := make([]*s3.Object, len(keys), len(keys))
+	for index, key := range keys {
+		objects[index] = &s3.Object{Key: aws.String(key)}
+	}
+
+	b.s3.On(
+		"ListObjectsV2WithContext",
+		b.ctx,
+		mock.MatchedBy(func(arg interface{}) bool {
+			input, ok := arg.(*s3.ListObjectsV2Input)
+			b.True(ok)
+
+			b.Equal(bucketName, *input.Bucket)
+			b.Equal("scopeName/archive/", *input.Prefix)
+			b.EqualValues(10, *input.MaxKeys)
+
+			if before != nil {
+				b.Equal(*before, *input.StartAfter)
+			}
+
+			return true
+		}),
+		[]request.Option(nil),
+	).Return(&s3.ListObjectsV2Output{Contents: objects}, err)
+}
+
+func (b *backendTestSuite) withLiveObjects(err error, keys ...string) {
 	objects := make([]*s3.Object, len(keys), len(keys))
 	for index, key := range keys {
 		objects[index] = &s3.Object{Key: aws.String(key)}
