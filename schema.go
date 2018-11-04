@@ -40,9 +40,25 @@ type Mutation {
   reset(scopeId: ID!, releaseId: ID!): Scope!
 }
 
+# Change represents a difference between two versions of the same single
+# variable.
+type Change {
+  before: Variable!
+  after: Variable!
+}
+
+# Diff represents a difference between two Releases, or between the current
+# workspace and a Release.
+type Diff {
+  added: [Variable!]!
+  changed: [Change!]!
+  deleted: [Variable!]!
+}
+
 # Release is the snapshot of the configuration associated with a given Scope.
 type Release {
   id: ID!
+  diff(since: ID!): Diff!
   scope: Scope!
   live: Boolean!
   variables: [Variable!]!
@@ -52,6 +68,7 @@ type Release {
 # per-scope basis.
 type Scope {
   id: ID!
+  diff(since: ID!): Diff!
   kmsKeyId: String!
   variables: [Variable!]!
 }
