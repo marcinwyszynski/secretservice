@@ -57,7 +57,6 @@ type Release {
   id: ID!
   diff(since: ID!): Diff!
   live: Boolean!
-  scope: Scope!
   timestamp: Int!
   variables: [Variable!]!
 }
