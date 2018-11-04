@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/marcinwyszynski/secretservice"
 	"github.com/marcinwyszynski/ssmvars"
@@ -18,50 +17,6 @@ type resolver struct {
 // New returns an implementation of GraphQL resolver.
 func New(backend secretservice.Backend) interface{} {
 	return &resolver{wraps: backend}
-}
-
-type releaseArgs struct {
-	ScopeID, ReleaseID graphql.ID
-}
-
-// release(scopeId: ID!, releaseId: ID!): Release!
-func (r *resolver) Release(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
-	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
-	if err != nil {
-		return nil, err
-	}
-
-	return newReleaseResolver(r.wraps, args.ReleaseID, scope), nil
-}
-
-type releasesArgs struct {
-	ScopeID graphql.ID
-	Before  *graphql.ID
-}
-
-// releases(scopeId: ID!, before: ID): [Release!]!
-func (r *resolver) Releases(ctx context.Context, args releasesArgs) ([]*releaseResolver, error) {
-	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
-	if err != nil {
-		return nil, err
-	}
-
-	var before *string
-	if args.Before != nil {
-		before = aws.String(string(*args.Before))
-	}
-
-	ids, err := r.wraps.ListReleases(ctx, string(args.ScopeID), before)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not list release IDs")
-	}
-
-	ret := make([]*releaseResolver, len(ids), len(ids))
-	for index, id := range ids {
-		ret[index] = newReleaseResolver(r.wraps, graphql.ID(id), scope)
-	}
-
-	return ret, nil
 }
 
 type scopeArgs struct {
@@ -175,17 +130,26 @@ func (r *resolver) CreateRelease(ctx context.Context, args scopeArgs) (*releaseR
 	return newReleaseResolver(r.wraps, graphql.ID(release.ID), scope), nil
 }
 
+type mutateReleaseArgs struct {
+	ScopeID, ReleaseID graphql.ID
+}
+
 // archiveRelease(scopeId: ID!, releaseId: ID!): Release!
-func (r *resolver) ArchiveRelease(ctx context.Context, args releaseArgs) (*releaseResolver, error) {
-	if err := r.wraps.ArchiveRelease(ctx, string(args.ScopeID), string(args.ReleaseID)); err != nil {
+func (r *resolver) ArchiveRelease(ctx context.Context, args mutateReleaseArgs) (*releaseResolver, error) {
+	scope, err := r.wraps.Scope(ctx, string(args.ScopeID))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.wraps.ArchiveRelease(ctx, scope.Name, string(args.ReleaseID)); err != nil {
 		return nil, errors.Wrap(err, "could not archive release")
 	}
 
-	return r.Release(ctx, args)
+	return newReleaseResolver(r.wraps, args.ReleaseID, scope), nil
 }
 
 // reset(scopeId: ID!, releaseId: ID!): Scope!
-func (r *resolver) Reset(ctx context.Context, args releaseArgs) (*scopeResolver, error) {
+func (r *resolver) Reset(ctx context.Context, args mutateReleaseArgs) (*scopeResolver, error) {
 	scopeName := string(args.ScopeID)
 
 	scope, err := r.wraps.Scope(ctx, scopeName)

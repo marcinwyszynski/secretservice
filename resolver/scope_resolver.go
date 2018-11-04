@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/marcinwyszynski/secretservice"
 	"github.com/marcinwyszynski/ssmvars"
@@ -42,6 +43,39 @@ func (s *scopeResolver) Diff(ctx context.Context, args diffArgs) (*diffResolver,
 // kmsKeyId: String!
 func (s *scopeResolver) KMSKeyID() string {
 	return s.wraps.KMSKeyID
+}
+
+type releaseArgs struct {
+	ID graphql.ID
+}
+
+// release(id: ID!): Release!
+func (s *scopeResolver) Release(args releaseArgs) *releaseResolver {
+	return newReleaseResolver(s.backend, args.ID, s.wraps)
+}
+
+type releasesArgs struct {
+	Before *graphql.ID
+}
+
+// releases(scopeId: ID!, before: ID): [Release!]!
+func (s *scopeResolver) Releases(ctx context.Context, args releasesArgs) ([]*releaseResolver, error) {
+	var before *string
+	if args.Before != nil {
+		before = aws.String(string(*args.Before))
+	}
+
+	ids, err := s.backend.ListReleases(ctx, s.wraps.Name, before)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list release IDs")
+	}
+
+	ret := make([]*releaseResolver, len(ids), len(ids))
+	for index, id := range ids {
+		ret[index] = newReleaseResolver(s.backend, graphql.ID(id), s.wraps)
+	}
+
+	return ret, nil
 }
 
 // variables: [Variable!]!
