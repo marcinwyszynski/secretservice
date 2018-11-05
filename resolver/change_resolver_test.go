@@ -3,8 +3,8 @@ package resolver
 import (
 	"testing"
 
-	"github.com/docker/docker/pkg/testutil/assert"
 	"github.com/marcinwyszynski/ssmvars"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestChangeResolver(t *testing.T) {
