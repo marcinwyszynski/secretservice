@@ -1,0 +1,32 @@
+version: 2
+
+jobs:
+  test:
+    working_directory: /go/src/github.com/marcinwyszynski/secretservice
+    docker:
+      - image: circleci/golang:1.11
+
+    steps:
+      - checkout
+
+      - run:
+          name: Pull dependencies
+          command: dep ensure
+
+      - run:
+          name: Lint (go vet)
+          command: go vet ./...
+
+      - run:
+          name: Test (go test)
+          command: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - run:
+          name: Upload coverage data
+          command: bash <(curl -s https://codecov.io/bash)
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
