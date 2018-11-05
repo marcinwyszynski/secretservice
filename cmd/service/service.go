@@ -14,6 +14,7 @@ import (
 	"github.com/marcinwyszynski/secretservice/handler"
 	"github.com/marcinwyszynski/secretservice/resolver"
 	"github.com/marcinwyszynski/ssmvars"
+	"github.com/pkg/errors"
 )
 
 type config struct {
@@ -38,6 +39,17 @@ func main() {
 	log.Debug("Starting AWS session")
 	session := session.Must(session.NewSession())
 
+	log.Debug("Building handler")
+	handler, err := buildHandler(session, &cfg)
+	if err != nil {
+		log.Fatalf("Could not build GraphQL schema: %v", err)
+	}
+
+	log.Info("Starting Lambda server")
+	lambda.Start(handler.Handle)
+}
+
+func buildHandler(session *session.Session, cfg *config) (*handler.Handler, error) {
 	log.Debug("Creating SSM API client")
 	ssmAPI := ssm.New(session)
 	xray.AWS(ssmAPI.Client)
@@ -53,8 +65,10 @@ func main() {
 	backend := backend.New(ssmvars, s3API, cfg.BucketName)
 
 	log.Debug("Setting up GraphQL schema")
-	schema := graphql.MustParseSchema(secretservice.Schema, resolver.New(backend))
+	schema, err := graphql.ParseSchema(secretservice.Schema, resolver.New(backend))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create a GraphQL schema")
+	}
 
-	log.Info("Starting Lambda server")
-	lambda.Start(handler.New(schema).Handle)
+	return handler.New(schema), nil
 }
