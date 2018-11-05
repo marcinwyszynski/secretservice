@@ -6,7 +6,6 @@ import (
 
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/marcinwyszynski/secretservice"
-	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 )
 
@@ -55,21 +54,13 @@ func (r *releaseResolver) Live(ctx context.Context) (bool, error) {
 	return r.wraps.Live, nil
 }
 
-// scope: Scope!
-func (r *releaseResolver) Scope() *scopeResolver {
-	return &scopeResolver{backend: r.backend, wraps: r.scope}
-}
-
 // timestamp: Int!
 func (r *releaseResolver) Timestamp() (int32, error) {
-	id, err := ulid.Parse(string(r.wraps.ID))
+	ret, err := r.wraps.Timestamp()
 	if err != nil {
-		return -1, errors.Wrap(err, "could not parse release ID as ULID")
+		return -1, err
 	}
-
-	millis := ulid.MaxTime() - id.Time()
-
-	return int32(millis / 1e3), nil
+	return int32(ret), nil
 }
 
 // variables: [Variable!]!

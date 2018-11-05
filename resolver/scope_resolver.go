@@ -29,7 +29,7 @@ type diffArgs struct {
 func (s *scopeResolver) Diff(ctx context.Context, args diffArgs) (*diffResolver, error) {
 	newVariables, err := s.workspace(ctx)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	release, err := s.backend.GetRelease(ctx, s.wraps.Name, string(args.Since))

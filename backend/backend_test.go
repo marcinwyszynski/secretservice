@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -54,6 +55,11 @@ func (b *backendTestSuite) TestCreateRelease_OK() {
 
 	b.NoError(err)
 	b.NotEmpty(release.ID)
+
+	timestamp, err := release.Timestamp()
+	b.NoError(err)
+	b.InDelta(timestamp, time.Now().Unix(), 1)
+
 	b.True(release.Live)
 	b.Equal(scopeName, release.ScopeName)
 }
