@@ -52,7 +52,7 @@ func (h *Handler) handle(ctx context.Context, input string) ([]byte, error) {
 
 	ret, err := json.Marshal(h.schema.Exec(ctx, req.Query, req.OperationName, req.Variables))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not write back the reponse")
+		return nil, errors.Wrap(err, "could not write back the response")
 	}
 	return ret, nil
 }
